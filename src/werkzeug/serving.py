@@ -11,6 +11,8 @@ It provides features like interactive debugging and code reloading. Use
     from myapp import create_app
     from werkzeug import run_simple
 """
+import config
+
 import errno
 import io
 import os
@@ -706,6 +708,7 @@ class BaseWSGIServer(HTTPServer):
         )
 
         if fd is None:
+            print('fd is None')
             # No existing socket descriptor, do bind_and_activate=True.
             try:
                 self.server_bind()
@@ -715,6 +718,7 @@ class BaseWSGIServer(HTTPServer):
                 raise
         else:
             # Use the passed in socket directly.
+            print('fd: ', fd)
             self.socket = socket.fromfd(fd, address_family, socket.SOCK_STREAM)
             self.server_address = self.socket.getsockname()
 
@@ -1084,15 +1088,75 @@ def run_simple(
         srv.log_startup()
         _log("info", _ansi_style("Press CTRL+C to quit", "yellow"))
 
-    if use_reloader:
-        from ._reloader import run_with_reloader
+    config.srv = srv
 
-        run_with_reloader(
-            srv.serve_forever,
-            extra_files=extra_files,
-            exclude_patterns=exclude_patterns,
-            interval=reloader_interval,
-            reloader_type=reloader_type,
-        )
-    else:
-        srv.serve_forever()
+    # if use_reloader:
+    #     from ._reloader import run_with_reloader
+
+    #     run_with_reloader(
+    #         srv.serve_forever,
+    #         extra_files=extra_files,
+    #         exclude_patterns=exclude_patterns,
+    #         interval=reloader_interval,
+    #         reloader_type=reloader_type,
+    #     )
+    # else:
+    #     #srv.serve_forever()
+
+    #     # from socketserver.py
+    #     #self.__is_shut_down.clear()
+    #     #try:
+
+    #     # XXX: Consider using another file descriptor or connecting to the
+    #     # socket to wake this up instead of polling. Polling reduces our
+    #     # responsiveness to a shutdown request and wastes cpu at all other
+    #     # times.
+    #     with _ServerSelector() as selector:
+    #         selector.register(self, selectors.EVENT_READ)
+
+    #         #wait for "ready"
+
+    #             # get_request
+    #             # if(verify_request)
+    #                 # true:
+    #                     # finish_request
+    #                     # shutdown_request
+    #                 # false:
+    #                     # handle_error
+
+
+
+    #         while not self.__shutdown_request:
+    #             ready = selector.select(poll_interval)
+    #             # bpo-35017: shutdown() called during select(), exit immediately.
+    #             if self.__shutdown_request:
+    #                 break
+    #             if ready:
+    #                 #self._handle_request_noblock()
+
+    #                 try:
+    #                     request, client_address = self.get_request()
+    #                 except OSError:
+    #                     return
+    #                 if self.verify_request(request, client_address):
+    #                     try:
+    #                         #self.process_request(request, client_address)
+    #                         # replacing process_request with definition
+    #                         self.finish_request(request, client_address)
+    #                             self.RequestHandlerClass(request, client_address, self)
+    #                         self.shutdown_request(request)
+    #                     except Exception:
+    #                         self.handle_error(request, client_address)
+    #                         self.shutdown_request(request)
+    #                     except:
+    #                         self.shutdown_request(request)
+    #                         raise
+    #                 else:
+    #                     self.shutdown_request(request)
+
+    #             self.service_actions()
+
+
+    #     # finally:
+    #     #     self.__shutdown_request = False
+    #     #     self.__is_shut_down.set()
