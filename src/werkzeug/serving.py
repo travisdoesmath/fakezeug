@@ -17,6 +17,7 @@ import errno
 import io
 import os
 import socket
+import mocket
 import socketserver
 import sys
 import typing as t
@@ -85,66 +86,66 @@ if t.TYPE_CHECKING:
     from cryptography.x509 import Certificate
 
 
-class DechunkedInput(io.RawIOBase):
-    """An input stream that handles Transfer-Encoding 'chunked'"""
+# class DechunkedInput(io.RawIOBase):
+#     """An input stream that handles Transfer-Encoding 'chunked'"""
 
-    def __init__(self, rfile: t.IO[bytes]) -> None:
-        self._rfile = rfile
-        self._done = False
-        self._len = 0
+#     def __init__(self, rfile: t.IO[bytes]) -> None:
+#         self._rfile = rfile
+#         self._done = False
+#         self._len = 0
 
-    def readable(self) -> bool:
-        return True
+#     def readable(self) -> bool:
+#         return True
 
-    def read_chunk_len(self) -> int:
-        try:
-            line = self._rfile.readline().decode("latin1")
-            _len = int(line.strip(), 16)
-        except ValueError as e:
-            raise OSError("Invalid chunk header") from e
-        if _len < 0:
-            raise OSError("Negative chunk length not allowed")
-        return _len
+#     def read_chunk_len(self) -> int:
+#         try:
+#             line = self._rfile.readline().decode("latin1")
+#             _len = int(line.strip(), 16)
+#         except ValueError as e:
+#             raise OSError("Invalid chunk header") from e
+#         if _len < 0:
+#             raise OSError("Negative chunk length not allowed")
+#         return _len
 
-    def readinto(self, buf: bytearray) -> int:  # type: ignore
-        read = 0
-        while not self._done and read < len(buf):
-            if self._len == 0:
-                # This is the first chunk or we fully consumed the previous
-                # one. Read the next length of the next chunk
-                self._len = self.read_chunk_len()
+#     def readinto(self, buf: bytearray) -> int:  # type: ignore
+#         read = 0
+#         while not self._done and read < len(buf):
+#             if self._len == 0:
+#                 # This is the first chunk or we fully consumed the previous
+#                 # one. Read the next length of the next chunk
+#                 self._len = self.read_chunk_len()
 
-            if self._len == 0:
-                # Found the final chunk of size 0. The stream is now exhausted,
-                # but there is still a final newline that should be consumed
-                self._done = True
+#             if self._len == 0:
+#                 # Found the final chunk of size 0. The stream is now exhausted,
+#                 # but there is still a final newline that should be consumed
+#                 self._done = True
 
-            if self._len > 0:
-                # There is data (left) in this chunk, so append it to the
-                # buffer. If this operation fully consumes the chunk, this will
-                # reset self._len to 0.
-                n = min(len(buf), self._len)
+#             if self._len > 0:
+#                 # There is data (left) in this chunk, so append it to the
+#                 # buffer. If this operation fully consumes the chunk, this will
+#                 # reset self._len to 0.
+#                 n = min(len(buf), self._len)
 
-                # If (read + chunk size) becomes more than len(buf), buf will
-                # grow beyond the original size and read more data than
-                # required. So only read as much data as can fit in buf.
-                if read + n > len(buf):
-                    buf[read:] = self._rfile.read(len(buf) - read)
-                    self._len -= len(buf) - read
-                    read = len(buf)
-                else:
-                    buf[read : read + n] = self._rfile.read(n)
-                    self._len -= n
-                    read += n
+#                 # If (read + chunk size) becomes more than len(buf), buf will
+#                 # grow beyond the original size and read more data than
+#                 # required. So only read as much data as can fit in buf.
+#                 if read + n > len(buf):
+#                     buf[read:] = self._rfile.read(len(buf) - read)
+#                     self._len -= len(buf) - read
+#                     read = len(buf)
+#                 else:
+#                     buf[read : read + n] = self._rfile.read(n)
+#                     self._len -= n
+#                     read += n
 
-            if self._len == 0:
-                # Skip the terminating newline of a chunk that has been fully
-                # consumed. This also applies to the 0-sized final chunk
-                terminator = self._rfile.readline()
-                if terminator not in (b"\n", b"\r\n", b"\r"):
-                    raise OSError("Missing chunk terminating newline")
+#             if self._len == 0:
+#                 # Skip the terminating newline of a chunk that has been fully
+#                 # consumed. This also applies to the 0-sized final chunk
+#                 terminator = self._rfile.readline()
+#                 if terminator not in (b"\n", b"\r\n", b"\r"):
+#                     raise OSError("Missing chunk terminating newline")
 
-        return read
+#         return read
 
 
 class WSGIRequestHandler(BaseHTTPRequestHandler):
@@ -158,85 +159,85 @@ class WSGIRequestHandler(BaseHTTPRequestHandler):
 
         return f"Werkzeug/{__version__}"
 
-    def make_environ(self) -> "WSGIEnvironment":
-        request_url = url_parse(self.path)
-        url_scheme = "http" if self.server.ssl_context is None else "https"
+    # def make_environ(self) -> "WSGIEnvironment":
+    #     request_url = url_parse(self.path)
+    #     url_scheme = "http" if self.server.ssl_context is None else "https"
 
-        if not self.client_address:
-            self.client_address = ("<local>", 0)
-        elif isinstance(self.client_address, str):
-            self.client_address = (self.client_address, 0)
+    #     if not self.client_address:
+    #         self.client_address = ("<local>", 0)
+    #     elif isinstance(self.client_address, str):
+    #         self.client_address = (self.client_address, 0)
 
-        # If there was no scheme but the path started with two slashes,
-        # the first segment may have been incorrectly parsed as the
-        # netloc, prepend it to the path again.
-        if not request_url.scheme and request_url.netloc:
-            path_info = f"/{request_url.netloc}{request_url.path}"
-        else:
-            path_info = request_url.path
+    #     # If there was no scheme but the path started with two slashes,
+    #     # the first segment may have been incorrectly parsed as the
+    #     # netloc, prepend it to the path again.
+    #     if not request_url.scheme and request_url.netloc:
+    #         path_info = f"/{request_url.netloc}{request_url.path}"
+    #     else:
+    #         path_info = request_url.path
 
-        path_info = url_unquote(path_info)
+    #     path_info = url_unquote(path_info)
 
-        environ: "WSGIEnvironment" = {
-            "wsgi.version": (1, 0),
-            "wsgi.url_scheme": url_scheme,
-            "wsgi.input": self.rfile,
-            "wsgi.errors": sys.stderr,
-            "wsgi.multithread": self.server.multithread,
-            "wsgi.multiprocess": self.server.multiprocess,
-            "wsgi.run_once": False,
-            "werkzeug.socket": self.connection,
-            "SERVER_SOFTWARE": self.server_version,
-            "REQUEST_METHOD": self.command,
-            "SCRIPT_NAME": "",
-            "PATH_INFO": _wsgi_encoding_dance(path_info),
-            "QUERY_STRING": _wsgi_encoding_dance(request_url.query),
-            # Non-standard, added by mod_wsgi, uWSGI
-            "REQUEST_URI": _wsgi_encoding_dance(self.path),
-            # Non-standard, added by gunicorn
-            "RAW_URI": _wsgi_encoding_dance(self.path),
-            "REMOTE_ADDR": self.address_string(),
-            "REMOTE_PORT": self.port_integer(),
-            "SERVER_NAME": self.server.server_address[0],
-            "SERVER_PORT": str(self.server.server_address[1]),
-            "SERVER_PROTOCOL": self.request_version,
-        }
+    #     environ: "WSGIEnvironment" = {
+    #         "wsgi.version": (1, 0),
+    #         "wsgi.url_scheme": url_scheme,
+    #         "wsgi.input": self.rfile,
+    #         "wsgi.errors": sys.stderr,
+    #         "wsgi.multithread": self.server.multithread,
+    #         "wsgi.multiprocess": self.server.multiprocess,
+    #         "wsgi.run_once": False,
+    #         "werkzeug.socket": self.connection,
+    #         "SERVER_SOFTWARE": self.server_version,
+    #         "REQUEST_METHOD": self.command,
+    #         "SCRIPT_NAME": "",
+    #         "PATH_INFO": _wsgi_encoding_dance(path_info),
+    #         "QUERY_STRING": _wsgi_encoding_dance(request_url.query),
+    #         # Non-standard, added by mod_wsgi, uWSGI
+    #         "REQUEST_URI": _wsgi_encoding_dance(self.path),
+    #         # Non-standard, added by gunicorn
+    #         "RAW_URI": _wsgi_encoding_dance(self.path),
+    #         "REMOTE_ADDR": self.address_string(),
+    #         "REMOTE_PORT": self.port_integer(),
+    #         "SERVER_NAME": self.server.server_address[0],
+    #         "SERVER_PORT": str(self.server.server_address[1]),
+    #         "SERVER_PROTOCOL": self.request_version,
+    #     }
 
-        for key, value in self.headers.items():
-            key = key.upper().replace("-", "_")
-            value = value.replace("\r\n", "")
-            if key not in ("CONTENT_TYPE", "CONTENT_LENGTH"):
-                key = f"HTTP_{key}"
-                if key in environ:
-                    value = f"{environ[key]},{value}"
-            environ[key] = value
+    #     for key, value in self.headers.items():
+    #         key = key.upper().replace("-", "_")
+    #         value = value.replace("\r\n", "")
+    #         if key not in ("CONTENT_TYPE", "CONTENT_LENGTH"):
+    #             key = f"HTTP_{key}"
+    #             if key in environ:
+    #                 value = f"{environ[key]},{value}"
+    #         environ[key] = value
 
-        if environ.get("HTTP_TRANSFER_ENCODING", "").strip().lower() == "chunked":
-            environ["wsgi.input_terminated"] = True
-            environ["wsgi.input"] = DechunkedInput(environ["wsgi.input"])
+    #     if environ.get("HTTP_TRANSFER_ENCODING", "").strip().lower() == "chunked":
+    #         environ["wsgi.input_terminated"] = True
+    #         environ["wsgi.input"] = DechunkedInput(environ["wsgi.input"])
 
-        # Per RFC 2616, if the URL is absolute, use that as the host.
-        # We're using "has a scheme" to indicate an absolute URL.
-        if request_url.scheme and request_url.netloc:
-            environ["HTTP_HOST"] = request_url.netloc
+    #     # Per RFC 2616, if the URL is absolute, use that as the host.
+    #     # We're using "has a scheme" to indicate an absolute URL.
+    #     if request_url.scheme and request_url.netloc:
+    #         environ["HTTP_HOST"] = request_url.netloc
 
-        try:
-            # binary_form=False gives nicer information, but wouldn't be compatible with
-            # what Nginx or Apache could return.
-            peer_cert = self.connection.getpeercert(  # type: ignore[attr-defined]
-                binary_form=True
-            )
-            if peer_cert is not None:
-                # Nginx and Apache use PEM format.
-                environ["SSL_CLIENT_CERT"] = ssl.DER_cert_to_PEM_cert(peer_cert)
-        except ValueError:
-            # SSL handshake hasn't finished.
-            self.server.log("error", "Cannot fetch SSL peer certificate info")
-        except AttributeError:
-            # Not using TLS, the socket will not have getpeercert().
-            pass
+    #     try:
+    #         # binary_form=False gives nicer information, but wouldn't be compatible with
+    #         # what Nginx or Apache could return.
+    #         peer_cert = self.connection.getpeercert(  # type: ignore[attr-defined]
+    #             binary_form=True
+    #         )
+    #         if peer_cert is not None:
+    #             # Nginx and Apache use PEM format.
+    #             environ["SSL_CLIENT_CERT"] = ssl.DER_cert_to_PEM_cert(peer_cert)
+    #     except ValueError:
+    #         # SSL handshake hasn't finished.
+    #         self.server.log("error", "Cannot fetch SSL peer certificate info")
+    #     except AttributeError:
+    #         # Not using TLS, the socket will not have getpeercert().
+    #         pass
 
-        return environ
+    #     return environ
 
     def run_wsgi(self) -> None:
         if self.headers.get("Expect", "").lower().strip() == "100-continue":
@@ -460,196 +461,196 @@ def _ansi_style(value: str, *styles: str) -> str:
     return f"{value}\x1b[0m"
 
 
-def generate_adhoc_ssl_pair(
-    cn: t.Optional[str] = None,
-) -> t.Tuple["Certificate", "RSAPrivateKeyWithSerialization"]:
-    try:
-        from cryptography import x509
-        from cryptography.x509.oid import NameOID
-        from cryptography.hazmat.backends import default_backend
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import rsa
-    except ImportError:
-        raise TypeError(
-            "Using ad-hoc certificates requires the cryptography library."
-        ) from None
+# def generate_adhoc_ssl_pair(
+#     cn: t.Optional[str] = None,
+# ) -> t.Tuple["Certificate", "RSAPrivateKeyWithSerialization"]:
+#     try:
+#         from cryptography import x509
+#         from cryptography.x509.oid import NameOID
+#         from cryptography.hazmat.backends import default_backend
+#         from cryptography.hazmat.primitives import hashes
+#         from cryptography.hazmat.primitives.asymmetric import rsa
+#     except ImportError:
+#         raise TypeError(
+#             "Using ad-hoc certificates requires the cryptography library."
+#         ) from None
 
-    backend = default_backend()
-    pkey = rsa.generate_private_key(
-        public_exponent=65537, key_size=2048, backend=backend
-    )
+#     backend = default_backend()
+#     pkey = rsa.generate_private_key(
+#         public_exponent=65537, key_size=2048, backend=backend
+#     )
 
-    # pretty damn sure that this is not actually accepted by anyone
-    if cn is None:
-        cn = "*"
+#     # pretty damn sure that this is not actually accepted by anyone
+#     if cn is None:
+#         cn = "*"
 
-    subject = x509.Name(
-        [
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Dummy Certificate"),
-            x509.NameAttribute(NameOID.COMMON_NAME, cn),
-        ]
-    )
+#     subject = x509.Name(
+#         [
+#             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Dummy Certificate"),
+#             x509.NameAttribute(NameOID.COMMON_NAME, cn),
+#         ]
+#     )
 
-    backend = default_backend()
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(subject)
-        .issuer_name(subject)
-        .public_key(pkey.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(dt.now(timezone.utc))
-        .not_valid_after(dt.now(timezone.utc) + timedelta(days=365))
-        .add_extension(x509.ExtendedKeyUsage([x509.OID_SERVER_AUTH]), critical=False)
-        .add_extension(x509.SubjectAlternativeName([x509.DNSName(cn)]), critical=False)
-        .sign(pkey, hashes.SHA256(), backend)
-    )
-    return cert, pkey
-
-
-def make_ssl_devcert(
-    base_path: str, host: t.Optional[str] = None, cn: t.Optional[str] = None
-) -> t.Tuple[str, str]:
-    """Creates an SSL key for development.  This should be used instead of
-    the ``'adhoc'`` key which generates a new cert on each server start.
-    It accepts a path for where it should store the key and cert and
-    either a host or CN.  If a host is given it will use the CN
-    ``*.host/CN=host``.
-
-    For more information see :func:`run_simple`.
-
-    .. versionadded:: 0.9
-
-    :param base_path: the path to the certificate and key.  The extension
-                      ``.crt`` is added for the certificate, ``.key`` is
-                      added for the key.
-    :param host: the name of the host.  This can be used as an alternative
-                 for the `cn`.
-    :param cn: the `CN` to use.
-    """
-
-    if host is not None:
-        cn = f"*.{host}/CN={host}"
-    cert, pkey = generate_adhoc_ssl_pair(cn=cn)
-
-    from cryptography.hazmat.primitives import serialization
-
-    cert_file = f"{base_path}.crt"
-    pkey_file = f"{base_path}.key"
-
-    with open(cert_file, "wb") as f:
-        f.write(cert.public_bytes(serialization.Encoding.PEM))
-    with open(pkey_file, "wb") as f:
-        f.write(
-            pkey.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
-        )
-
-    return cert_file, pkey_file
+#     backend = default_backend()
+#     cert = (
+#         x509.CertificateBuilder()
+#         .subject_name(subject)
+#         .issuer_name(subject)
+#         .public_key(pkey.public_key())
+#         .serial_number(x509.random_serial_number())
+#         .not_valid_before(dt.now(timezone.utc))
+#         .not_valid_after(dt.now(timezone.utc) + timedelta(days=365))
+#         .add_extension(x509.ExtendedKeyUsage([x509.OID_SERVER_AUTH]), critical=False)
+#         .add_extension(x509.SubjectAlternativeName([x509.DNSName(cn)]), critical=False)
+#         .sign(pkey, hashes.SHA256(), backend)
+#     )
+#     return cert, pkey
 
 
-def generate_adhoc_ssl_context() -> "ssl.SSLContext":
-    """Generates an adhoc SSL context for the development server."""
-    import tempfile
-    import atexit
+# def make_ssl_devcert(
+#     base_path: str, host: t.Optional[str] = None, cn: t.Optional[str] = None
+# ) -> t.Tuple[str, str]:
+#     """Creates an SSL key for development.  This should be used instead of
+#     the ``'adhoc'`` key which generates a new cert on each server start.
+#     It accepts a path for where it should store the key and cert and
+#     either a host or CN.  If a host is given it will use the CN
+#     ``*.host/CN=host``.
 
-    cert, pkey = generate_adhoc_ssl_pair()
+#     For more information see :func:`run_simple`.
 
-    from cryptography.hazmat.primitives import serialization
+#     .. versionadded:: 0.9
 
-    cert_handle, cert_file = tempfile.mkstemp()
-    pkey_handle, pkey_file = tempfile.mkstemp()
-    atexit.register(os.remove, pkey_file)
-    atexit.register(os.remove, cert_file)
+#     :param base_path: the path to the certificate and key.  The extension
+#                       ``.crt`` is added for the certificate, ``.key`` is
+#                       added for the key.
+#     :param host: the name of the host.  This can be used as an alternative
+#                  for the `cn`.
+#     :param cn: the `CN` to use.
+#     """
 
-    os.write(cert_handle, cert.public_bytes(serialization.Encoding.PEM))
-    os.write(
-        pkey_handle,
-        pkey.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
-        ),
-    )
+#     if host is not None:
+#         cn = f"*.{host}/CN={host}"
+#     cert, pkey = generate_adhoc_ssl_pair(cn=cn)
 
-    os.close(cert_handle)
-    os.close(pkey_handle)
-    ctx = load_ssl_context(cert_file, pkey_file)
-    return ctx
+#     from cryptography.hazmat.primitives import serialization
 
+#     cert_file = f"{base_path}.crt"
+#     pkey_file = f"{base_path}.key"
 
-def load_ssl_context(
-    cert_file: str, pkey_file: t.Optional[str] = None, protocol: t.Optional[int] = None
-) -> "ssl.SSLContext":
-    """Loads SSL context from cert/private key files and optional protocol.
-    Many parameters are directly taken from the API of
-    :py:class:`ssl.SSLContext`.
+#     with open(cert_file, "wb") as f:
+#         f.write(cert.public_bytes(serialization.Encoding.PEM))
+#     with open(pkey_file, "wb") as f:
+#         f.write(
+#             pkey.private_bytes(
+#                 encoding=serialization.Encoding.PEM,
+#                 format=serialization.PrivateFormat.TraditionalOpenSSL,
+#                 encryption_algorithm=serialization.NoEncryption(),
+#             )
+#         )
 
-    :param cert_file: Path of the certificate to use.
-    :param pkey_file: Path of the private key to use. If not given, the key
-                      will be obtained from the certificate file.
-    :param protocol: A ``PROTOCOL`` constant from the :mod:`ssl` module.
-        Defaults to :data:`ssl.PROTOCOL_TLS_SERVER`.
-    """
-    if protocol is None:
-        protocol = ssl.PROTOCOL_TLS_SERVER
-
-    ctx = ssl.SSLContext(protocol)
-    ctx.load_cert_chain(cert_file, pkey_file)
-    return ctx
+#     return cert_file, pkey_file
 
 
-def is_ssl_error(error: t.Optional[Exception] = None) -> bool:
-    """Checks if the given error (or the current one) is an SSL error."""
-    if error is None:
-        error = t.cast(Exception, sys.exc_info()[1])
-    return isinstance(error, ssl.SSLError)
+# def generate_adhoc_ssl_context() -> "ssl.SSLContext":
+#     """Generates an adhoc SSL context for the development server."""
+#     import tempfile
+#     import atexit
+
+#     cert, pkey = generate_adhoc_ssl_pair()
+
+#     from cryptography.hazmat.primitives import serialization
+
+#     cert_handle, cert_file = tempfile.mkstemp()
+#     pkey_handle, pkey_file = tempfile.mkstemp()
+#     atexit.register(os.remove, pkey_file)
+#     atexit.register(os.remove, cert_file)
+
+#     os.write(cert_handle, cert.public_bytes(serialization.Encoding.PEM))
+#     os.write(
+#         pkey_handle,
+#         pkey.private_bytes(
+#             encoding=serialization.Encoding.PEM,
+#             format=serialization.PrivateFormat.TraditionalOpenSSL,
+#             encryption_algorithm=serialization.NoEncryption(),
+#         ),
+#     )
+
+#     os.close(cert_handle)
+#     os.close(pkey_handle)
+#     ctx = load_ssl_context(cert_file, pkey_file)
+#     return ctx
 
 
-def select_address_family(host: str, port: int) -> socket.AddressFamily:
-    """Return ``AF_INET4``, ``AF_INET6``, or ``AF_UNIX`` depending on
-    the host and port."""
-    if host.startswith("unix://"):
-        return socket.AF_UNIX
-    elif ":" in host and hasattr(socket, "AF_INET6"):
-        return socket.AF_INET6
-    return socket.AF_INET
+# def load_ssl_context(
+#     cert_file: str, pkey_file: t.Optional[str] = None, protocol: t.Optional[int] = None
+# ) -> "ssl.SSLContext":
+#     """Loads SSL context from cert/private key files and optional protocol.
+#     Many parameters are directly taken from the API of
+#     :py:class:`ssl.SSLContext`.
+
+#     :param cert_file: Path of the certificate to use.
+#     :param pkey_file: Path of the private key to use. If not given, the key
+#                       will be obtained from the certificate file.
+#     :param protocol: A ``PROTOCOL`` constant from the :mod:`ssl` module.
+#         Defaults to :data:`ssl.PROTOCOL_TLS_SERVER`.
+#     """
+#     if protocol is None:
+#         protocol = ssl.PROTOCOL_TLS_SERVER
+
+#     ctx = ssl.SSLContext(protocol)
+#     ctx.load_cert_chain(cert_file, pkey_file)
+#     return ctx
 
 
-def get_sockaddr(
-    host: str, port: int, family: socket.AddressFamily
-) -> t.Union[t.Tuple[str, int], str]:
-    """Return a fully qualified socket address that can be passed to
-    :func:`socket.bind`."""
-    if family == af_unix:
-        return host.split("://", 1)[1]
-    try:
-        res = socket.getaddrinfo(
-            host, port, family, socket.SOCK_STREAM, socket.IPPROTO_TCP
-        )
-    except socket.gaierror:
-        return host, port
-    return res[0][4]  # type: ignore
+# def is_ssl_error(error: t.Optional[Exception] = None) -> bool:
+#     """Checks if the given error (or the current one) is an SSL error."""
+#     if error is None:
+#         error = t.cast(Exception, sys.exc_info()[1])
+#     return isinstance(error, ssl.SSLError)
 
 
-def get_interface_ip(family: socket.AddressFamily) -> str:
-    """Get the IP address of an external interface. Used when binding to
-    0.0.0.0 or ::1 to show a more useful URL.
+# def select_address_family(host: str, port: int) -> socket.AddressFamily:
+#     """Return ``AF_INET4``, ``AF_INET6``, or ``AF_UNIX`` depending on
+#     the host and port."""
+#     if host.startswith("unix://"):
+#         return socket.AF_UNIX
+#     elif ":" in host and hasattr(socket, "AF_INET6"):
+#         return socket.AF_INET6
+#     return socket.AF_INET
 
-    :meta private:
-    """
-    # arbitrary private address
-    host = "fd31:f903:5ab5:1::1" if family == socket.AF_INET6 else "10.253.155.219"
 
-    with socket.socket(family, socket.SOCK_DGRAM) as s:
-        try:
-            s.connect((host, 58162))
-        except OSError:
-            return "::1" if family == socket.AF_INET6 else "127.0.0.1"
+# def get_sockaddr(
+#     host: str, port: int, family: socket.AddressFamily
+# ) -> t.Union[t.Tuple[str, int], str]:
+#     """Return a fully qualified socket address that can be passed to
+#     :func:`socket.bind`."""
+#     if family == af_unix:
+#         return host.split("://", 1)[1]
+#     try:
+#         res = socket.getaddrinfo(
+#             host, port, family, socket.SOCK_STREAM, socket.IPPROTO_TCP
+#         )
+#     except socket.gaierror:
+#         return host, port
+#     return res[0][4]  # type: ignore
 
-        return s.getsockname()[0]  # type: ignore
+
+# def get_interface_ip(family: socket.AddressFamily) -> str:
+#     """Get the IP address of an external interface. Used when binding to
+#     0.0.0.0 or ::1 to show a more useful URL.
+
+#     :meta private:
+#     """
+#     # arbitrary private address
+#     host = "fd31:f903:5ab5:1::1" if family == socket.AF_INET6 else "10.253.155.219"
+
+#     with socket.socket(family, socket.SOCK_DGRAM) as s:
+#         try:
+#             s.connect((host, 58162))
+#         except OSError:
+#             return "::1" if family == socket.AF_INET6 else "127.0.0.1"
+
+#         return s.getsockname()[0]  # type: ignore
 
 
 class BaseWSGIServer(HTTPServer):
@@ -688,16 +689,18 @@ class BaseWSGIServer(HTTPServer):
         self.app = app
         self.passthrough_errors = passthrough_errors
 
-        self.address_family = address_family = select_address_family(host, port)
-        server_address = get_sockaddr(host, int(port), address_family)
+        # self.address_family = address_family = select_address_family(host, port)
+        self.address_family = address_family = socket.AF_INET
+        # server_address = get_sockaddr(host, int(port), address_family)
+        server_address = ('127.0.0.1', 5000)
 
         # Remove a leftover Unix socket file from a previous run. Don't
         # remove a file that was set up by run_simple.
-        if address_family == af_unix and fd is None:
-            server_address = t.cast(str, server_address)
+        # if address_family == af_unix and fd is None:
+        #     server_address = t.cast(str, server_address)
 
-            if os.path.exists(server_address):
-                os.unlink(server_address)
+        #     if os.path.exists(server_address):
+        #         os.unlink(server_address)
 
         # Bind and activate will be handled manually, it should only
         # happen if we're not using a socket that was already set up.
@@ -718,6 +721,7 @@ class BaseWSGIServer(HTTPServer):
                 raise
         else:
             # Use the passed in socket directly.
+
             print('fd: ', fd)
             self.socket = socket.fromfd(fd, address_family, socket.SOCK_STREAM)
             self.server_address = self.socket.getsockname()
@@ -791,42 +795,42 @@ class BaseWSGIServer(HTTPServer):
         _log("info", "\n".join(messages))
 
 
-class ThreadedWSGIServer(socketserver.ThreadingMixIn, BaseWSGIServer):
-    """A WSGI server that handles concurrent requests in separate
-    threads.
+# class ThreadedWSGIServer(socketserver.ThreadingMixIn, BaseWSGIServer):
+#     """A WSGI server that handles concurrent requests in separate
+#     threads.
 
-    Use :func:`make_server` to create a server instance.
-    """
+#     Use :func:`make_server` to create a server instance.
+#     """
 
-    multithread = True
-    daemon_threads = True
+#     multithread = True
+#     daemon_threads = True
 
 
-class ForkingWSGIServer(ForkingMixIn, BaseWSGIServer):
-    """A WSGI server that handles concurrent requests in separate forked
-    processes.
+# class ForkingWSGIServer(ForkingMixIn, BaseWSGIServer):
+#     """A WSGI server that handles concurrent requests in separate forked
+#     processes.
 
-    Use :func:`make_server` to create a server instance.
-    """
+#     Use :func:`make_server` to create a server instance.
+#     """
 
-    multiprocess = True
+#     multiprocess = True
 
-    def __init__(
-        self,
-        host: str,
-        port: int,
-        app: "WSGIApplication",
-        processes: int = 40,
-        handler: t.Optional[t.Type[WSGIRequestHandler]] = None,
-        passthrough_errors: bool = False,
-        ssl_context: t.Optional[_TSSLContextArg] = None,
-        fd: t.Optional[int] = None,
-    ) -> None:
-        if not can_fork:
-            raise ValueError("Your platform does not support forking.")
+#     def __init__(
+#         self,
+#         host: str,
+#         port: int,
+#         app: "WSGIApplication",
+#         processes: int = 40,
+#         handler: t.Optional[t.Type[WSGIRequestHandler]] = None,
+#         passthrough_errors: bool = False,
+#         ssl_context: t.Optional[_TSSLContextArg] = None,
+#         fd: t.Optional[int] = None,
+#     ) -> None:
+#         if not can_fork:
+#             raise ValueError("Your platform does not support forking.")
 
-        super().__init__(host, port, app, handler, passthrough_errors, ssl_context, fd)
-        self.max_children = processes
+#         super().__init__(host, port, app, handler, passthrough_errors, ssl_context, fd)
+#         self.max_children = processes
 
 
 def make_server(
@@ -849,25 +853,25 @@ def make_server(
 
     See :func:`run_simple` for parameter docs.
     """
-    if threaded and processes > 1:
-        raise ValueError("Cannot have a multi-thread and multi-process server.")
+    # if threaded and processes > 1:
+    #     raise ValueError("Cannot have a multi-thread and multi-process server.")
 
-    if threaded:
-        return ThreadedWSGIServer(
-            host, port, app, request_handler, passthrough_errors, ssl_context, fd=fd
-        )
+    # if threaded:
+    #     return ThreadedWSGIServer(
+    #         host, port, app, request_handler, passthrough_errors, ssl_context, fd=fd
+    #     )
 
-    if processes > 1:
-        return ForkingWSGIServer(
-            host,
-            port,
-            app,
-            processes,
-            request_handler,
-            passthrough_errors,
-            ssl_context,
-            fd=fd,
-        )
+    # if processes > 1:
+    #     return ForkingWSGIServer(
+    #         host,
+    #         port,
+    #         app,
+    #         processes,
+    #         request_handler,
+    #         passthrough_errors,
+    #         ssl_context,
+    #         fd=fd,
+    #     )
 
     return BaseWSGIServer(
         host, port, app, request_handler, passthrough_errors, ssl_context, fd=fd
@@ -880,61 +884,64 @@ def is_running_from_reloader() -> bool:
 
     .. versionadded:: 0.10
     """
-    return os.environ.get("WERKZEUG_RUN_MAIN") == "true"
+    # return os.environ.get("WERKZEUG_RUN_MAIN") == "true"
+    return False
 
 
-def prepare_socket(hostname: str, port: int) -> socket.socket:
-    """Prepare a socket for use by the WSGI server and reloader.
+# def prepare_socket(hostname: str, port: int) -> socket.socket:
+#     """Prepare a socket for use by the WSGI server and reloader.
 
-    The socket is marked inheritable so that it can be kept across
-    reloads instead of breaking connections.
+#     The socket is marked inheritable so that it can be kept across
+#     reloads instead of breaking connections.
 
-    Catch errors during bind and show simpler error messages. For
-    "address already in use", show instructions for resolving the issue,
-    with special instructions for macOS.
+#     Catch errors during bind and show simpler error messages. For
+#     "address already in use", show instructions for resolving the issue,
+#     with special instructions for macOS.
 
-    This is called from :func:`run_simple`, but can be used separately
-    to control server creation with :func:`make_server`.
-    """
-    address_family = select_address_family(hostname, port)
-    server_address = get_sockaddr(hostname, port, address_family)
-    s = socket.socket(address_family, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.set_inheritable(True)
+#     This is called from :func:`run_simple`, but can be used separately
+#     to control server creation with :func:`make_server`.
+#     """
+#     # address_family = select_address_family(hostname, port)
+#     # server_address = get_sockaddr(hostname, port, address_family)
+#     # s = socket.socket(address_family, socket.SOCK_STREAM)
+#     # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+#     # s.set_inheritable(True)
+#     address_family = socket.AF_INET
+#     server_address = ('127.0.0.1', 5000)
 
-    # Remove the socket file if it already exists.
-    if address_family == af_unix:
-        server_address = t.cast(str, server_address)
+#     # Remove the socket file if it already exists.
+#     # if address_family == af_unix:
+#     #     server_address = t.cast(str, server_address)
 
-        if os.path.exists(server_address):
-            os.unlink(server_address)
+#     #     if os.path.exists(server_address):
+#     #         os.unlink(server_address)
 
-    # Catch connection issues and show them without the traceback. Show
-    # extra instructions for address not found, and for macOS.
-    try:
-        s.bind(server_address)
-    except OSError as e:
-        print(e.strerror, file=sys.stderr)
+#     # Catch connection issues and show them without the traceback. Show
+#     # extra instructions for address not found, and for macOS.
+#     # try:
+#     #     s.bind(server_address)
+#     # except OSError as e:
+#     #     print(e.strerror, file=sys.stderr)
 
-        if e.errno == errno.EADDRINUSE:
-            print(
-                f"Port {port} is in use by another program. Either"
-                " identify and stop that program, or start the"
-                " server with a different port.",
-                file=sys.stderr,
-            )
+#     #     if e.errno == errno.EADDRINUSE:
+#     #         print(
+#     #             f"Port {port} is in use by another program. Either"
+#     #             " identify and stop that program, or start the"
+#     #             " server with a different port.",
+#     #             file=sys.stderr,
+#     #         )
 
-            if sys.platform == "darwin" and port == 5000:
-                print(
-                    "On macOS, try disabling the 'AirPlay Receiver'"
-                    " service from System Preferences -> Sharing.",
-                    file=sys.stderr,
-                )
+#     #         if sys.platform == "darwin" and port == 5000:
+#     #             print(
+#     #                 "On macOS, try disabling the 'AirPlay Receiver'"
+#     #                 " service from System Preferences -> Sharing.",
+#     #                 file=sys.stderr,
+#     #             )
 
-        sys.exit(1)
+#     #     sys.exit(1)
 
-    s.listen(LISTEN_QUEUE)
-    return s
+#     s.listen(LISTEN_QUEUE)
+#     return s
 
 
 def run_simple(
@@ -1062,15 +1069,16 @@ def run_simple(
 
         application = DebuggedApplication(application, evalex=use_evalex)
 
-    if not is_running_from_reloader():
-        s = prepare_socket(hostname, port)
-        fd = s.fileno()
-        # Silence a ResourceWarning about an unclosed socket. This object is no longer
-        # used, the server will create another with fromfd.
-        s.detach()
-        os.environ["WERKZEUG_SERVER_FD"] = str(fd)
-    else:
-        fd = int(os.environ["WERKZEUG_SERVER_FD"])
+    # if not is_running_from_reloader():
+    #     s = prepare_socket(hostname, port)
+    #     fd = s.fileno()
+    #     # Silence a ResourceWarning about an unclosed socket. This object is no longer
+    #     # used, the server will create another with fromfd.
+    #     s.detach()
+    #     os.environ["WERKZEUG_SERVER_FD"] = str(fd)
+    # else:
+    #     fd = int(os.environ["WERKZEUG_SERVER_FD"])
+    fd = 1
 
     srv = make_server(
         hostname,
@@ -1084,11 +1092,10 @@ def run_simple(
         fd=fd,
     )
 
-    if not is_running_from_reloader():
-        srv.log_startup()
-        _log("info", _ansi_style("Press CTRL+C to quit", "yellow"))
-
-    config.srv = srv
+# 
+    # if not is_running_from_reloader():
+    srv.log_startup()
+    _log("info", _ansi_style("Press CTRL+C to quit", "yellow"))
 
     # if use_reloader:
     #     from ._reloader import run_with_reloader
@@ -1101,6 +1108,7 @@ def run_simple(
     #         reloader_type=reloader_type,
     #     )
     # else:
+
     #     #srv.serve_forever()
 
     #     # from socketserver.py
@@ -1160,3 +1168,4 @@ def run_simple(
     #     # finally:
     #     #     self.__shutdown_request = False
     #     #     self.__is_shut_down.set()
+
